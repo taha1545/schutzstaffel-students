@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { AlertCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { activeTasks } from "@/services/dashboradServices";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -11,39 +13,70 @@ const MONTHS = [
 
 const DAYS_OF_WEEK = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-// Only deadlines for simplicity
-const MOCK_EVENTS = {
-  "2026-02-05": { title: "JavaScript Quiz", description: "Complete quiz on JS basics.", critical: true },
-  "2026-02-08": { title: "React Project Due", description: "Submit your React project.", critical: true },
-  "2026-02-15": { title: "Midterm Exam", description: "Midterm exam for module.", critical: true },
-  "2026-02-20": { title: "Group Project", description: "Submit group project.", critical: true },
-};
-
 export default function CalendarPage() {
-  const today = new Date();
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  const today = new Date();
   const year = today.getFullYear();
-  const month = today.getMonth(); 
+  const month = today.getMonth();
+
+  // Fetch active tasks for user
+  useEffect(() => {
+    if (!user) return;
+    const fetchTasks = async () => {
+      try {
+        const res = await activeTasks(user.id);
+        const userTasks = res.userTasks || [];
+        setTasks(userTasks.map(ut => ({
+          id: ut.task.id,
+          title: ut.task.title,
+          description: ut.task.description,
+          deadline: ut.task.deadline,
+          submitted: ut.status === "Completed",
+          isCritical: ut.task.isCritical || false
+        })));
+      } catch (err) {
+        console.error("Failed to fetch tasks:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTasks();
+  }, [user]);
+
+  // Generate calendar days
   const totalDays = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
-
-  //
   const days = [];
-  for (let i = 0; i < firstDay; i++) days.push(null); 
+  for (let i = 0; i < firstDay; i++) days.push(null);
   for (let i = 1; i <= totalDays; i++) days.push(new Date(year, month, i));
 
-  const handleDayClick = (date) => {
-    if (!date) return;
-    setSelectedDate(date);
-  };
+  const formatDate = date => date.toISOString().split("T")[0];
 
-  const formatDate = (date) => date.toISOString().split("T")[0];
+  // Map tasks to a dictionary for fast lookup
+  const taskEvents = tasks.reduce((acc, task) => {
+    const dateKey = task.deadline.split("T")[0];
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(task);
+    return acc;
+  }, {});
 
-  // Get upcoming deadlines for this month
-  const upcomingDeadlines = Object.entries(MOCK_EVENTS)
-    .filter(([date]) => date.startsWith(`${year}-0${month + 1}`)) 
-    .sort(([a], [b]) => a.localeCompare(b));
+  const upcomingDeadlines = tasks
+    .filter(task => task.deadline.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`))
+    .sort((a, b) => a.deadline.localeCompare(b.deadline));
+
+  const handleDayClick = (date) => date && setSelectedDate(date);
+
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center text-white">
+        Loading tasks...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-12">
@@ -61,17 +94,14 @@ export default function CalendarPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Calendar */}
           <div className="lg:col-span-2 bg-[#1c252e] border-2 border-white/10 clip-path-angle p-6 space-y-6">
-            {/* Month */}
             <h2 className="text-3xl font-display font-black text-center uppercase italic">
               {MONTHS[month]} {year}
             </h2>
 
             {/* Days of week */}
             <div className="grid grid-cols-7 gap-2">
-              {DAYS_OF_WEEK.map((d) => (
-                <div key={d} className="text-center text-xs font-mono font-bold text-primary">
-                  {d}
-                </div>
+              {DAYS_OF_WEEK.map(day => (
+                <div key={day} className="text-center text-xs font-mono font-bold text-primary">{day}</div>
               ))}
             </div>
 
@@ -81,14 +111,14 @@ export default function CalendarPage() {
                 if (!day) return <div key={idx} className="h-10" />;
 
                 const dateStr = formatDate(day);
-                const event = MOCK_EVENTS[dateStr];
+                const dayTasks = taskEvents[dateStr];
 
                 return (
                   <div
                     key={idx}
                     onClick={() => handleDayClick(day)}
                     className={`aspect-square flex items-center justify-center cursor-pointer border rounded-md transition
-                      ${event ? "bg-destructive/10 border-destructive hover:border-primary" : "bg-white/5 border-white/10 hover:border-white/20"}
+                      ${dayTasks ? "bg-destructive/10 border-destructive hover:border-primary" : "bg-white/5 border-white/10 hover:border-white/20"}
                     `}
                   >
                     {day.getDate()}
@@ -100,27 +130,22 @@ export default function CalendarPage() {
 
           {/* Selected Date / Upcoming Deadlines */}
           <div className="space-y-6">
-            {/* Selected Date Details */}
             {selectedDate ? (
               <div className="bg-[#1c252e] border-2 border-white/10 clip-path-angle p-6 space-y-2">
-                {MOCK_EVENTS[formatDate(selectedDate)] ? (
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-destructive mt-1" />
-                    <div>
-                      <p className="text-xs font-mono uppercase text-gray-400">
-                        {selectedDate.toDateString()}
-                      </p>
-                      <h3 className="text-xl font-display font-bold text-white mt-1">
-                        {MOCK_EVENTS[formatDate(selectedDate)].title}
-                      </h3>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {MOCK_EVENTS[formatDate(selectedDate)].description}
-                      </p>
+                {taskEvents[formatDate(selectedDate)] ? (
+                  taskEvents[formatDate(selectedDate)].map(task => (
+                    <div key={task.id} className="flex items-start gap-3 mb-3">
+                      <AlertCircle className="w-5 h-5 text-destructive mt-1" />
+                      <div>
+                        <p className="text-xs font-mono uppercase text-gray-400">{selectedDate.toDateString()}</p>
+                        <h3 className="text-xl font-display font-bold text-white mt-1">{task.title}</h3>
+                        <p className="text-sm text-gray-400 mt-1">{task.description}</p>
+                      </div>
                     </div>
-                  </div>
+                  ))
                 ) : (
                   <p className="text-gray-400 font-mono text-sm text-center">
-                    No events on {selectedDate.toDateString()}
+                    No tasks on {selectedDate.toDateString()}
                   </p>
                 )}
               </div>
@@ -135,13 +160,10 @@ export default function CalendarPage() {
               <h3 className="text-lg font-display font-bold text-white uppercase">Upcoming Deadlines</h3>
               <div className="space-y-2">
                 {upcomingDeadlines.length ? (
-                  upcomingDeadlines.map(([date, event]) => (
-                    <div
-                      key={date}
-                      className="p-3 border-l-2 border-destructive bg-destructive/10 cursor-pointer"
-                    >
-                      <p className="text-xs font-mono text-gray-400">{new Date(date).toDateString()}</p>
-                      <p className="text-sm font-display font-bold text-white">{event.title}</p>
+                  upcomingDeadlines.map(task => (
+                    <div key={task.id} className="p-3 border-l-2 border-destructive bg-destructive/10 cursor-pointer">
+                      <p className="text-xs font-mono text-gray-400">{new Date(task.deadline).toDateString()}</p>
+                      <p className="text-sm font-display font-bold text-white">{task.title}</p>
                     </div>
                   ))
                 ) : (

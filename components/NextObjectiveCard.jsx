@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ValorantButton } from "./ValorantButton";
 import { Flame, Zap, Target } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function NextObjectiveCard({
   title,
@@ -12,7 +13,6 @@ export function NextObjectiveCard({
   difficulty = "normal",
   xpReward = 100,
   estimatedTime = "15 min",
-  onStart,
   className
 }) {
   const difficultyGradients = {
@@ -21,6 +21,12 @@ export function NextObjectiveCard({
     hard: "from-orange-500 to-orange-600",
     tactical: "from-primary to-red-600"
   };
+
+  const router = useRouter();
+
+  const onStart = () => {
+    router.push("/goals")
+  }
 
   return (
     <motion.div
@@ -81,7 +87,7 @@ export function NextObjectiveCard({
             <span className="block text-xs text-gray-500 font-mono uppercase mb-1">
               Difficulty
             </span>
-            <span className={cn("text-sm font-bold uppercase px-2 py-1 border rounded", 
+            <span className={cn("text-sm font-bold uppercase px-2 py-1 border rounded",
               difficulty === "tactical" ? "border-primary text-primary" : "border-yellow-400/50 text-yellow-300"
             )}>
               {difficulty}

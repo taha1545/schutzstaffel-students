@@ -1,81 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search } from "lucide-react";
-
-// MOCK GOALS
-const MOCK_GOALS = [
-  { id: 1, name: "JavaScript Fundamentals", description: "Learn JS basics", duration: "2 weeks", domain: "Web", teacher: "Dr. Peterson" },
-  { id: 2, name: "React Mastery", description: "Build React apps", duration: "3 weeks", domain: "Web", teacher: "Ms. Chen" }
-];
-
-// MOCK TASKS
-const MOCK_TASKS = [
-  { id: 1, goalID: 1, title: "Hoisting Exercise", description: "Understand variable hoisting and scope, including var, let, and const. Make sure to check the differences in behavior in loops and functions.", deadline: "2026-02-20", isUsedKey: true, taskKey: "ABC123", xpPoint: 50, submitted: false, userNote: "" },
-  { id: 2, goalID: 1, title: "Closure Challenge", description: "Practice closures, including nested functions and returning functions with retained lexical scope. This task has a long description to test wrapping and card layout.", deadline: "2026-02-22", isUsedKey: false, taskKey: "", xpPoint: 75, submitted: false, userNote: "" },
-  { id: 3, goalID: 2, title: "React Props Drill", description: "Pass props between components efficiently. Handle multiple layers of nested components. Consider using Context API for optimization.", deadline: "2026-02-25", isUsedKey: true, taskKey: "", xpPoint: 100, submitted: false, userNote: "" },
-  {
-    id: 4,
-    goalID: 2,
-    title: "Advanced JavaScript Asynchronous Patterns and Optimization Techniques for High-Performance Web Applications in Modern Browsers",
-    description: `This task challenges you to deeply explore asynchronous programming in JavaScript, including but not limited to Promises, async/await, and the Event Loop. 
-You are expected to implement a series of functions that fetch data from multiple APIs concurrently, handle errors gracefully, and optimize response times using techniques such as throttling, debouncing, and memoization. 
-Additionally, experiment with Web Workers to offload computationally heavy tasks, ensuring smooth UI rendering. 
-Document your approach, include code comments explaining why each asynchronous pattern was chosen, and provide performance benchmarks. 
-The goal is to develop a practical understanding of how modern browsers handle asynchronous operations and how you can structure your code to maximize performance, maintainability, and scalability.imes using techniques such as throttling, debouncing, and memoization. 
-Additionally, experiment with Web Workers to offload computationally heavy tasks, ensuring smooth UI rendering. 
-Document your approach, include code comments explaining why each asynchronous pattern was chosen, and provide performance benchmarks. 
-The goal is to develop a practical understanding of how modern browsers handle asynchronous operations and how you can structure your code to maximize performance, maintainability, and scalabilitimes using techniques such as throttling, debouncing, and memoization. 
-Additionally, experiment with Web Workers to offload computationally heavy tasks, ensuring smooth UI rendering. 
-Document your approach, include code comments explaining why each asynchronous pattern was chosen, and provide performance benchmarks. 
-The goal is to develop a practical understanding of how modern browsers handle asynchronous operations and how you can structure your code to maximize performance, maintainability, and scalabilitimes using techniques such as throttling, debouncing, and memoization. 
-Additionally, experiment with Web Workers to offload computationally heavy tasks, ensuring smooth UI rendering. 
-Document your approach, include code comments explaining why each asynchronous pattern was chosen, and provide performance benchmarks. 
-The goal is to develop a practical understanding of how modern browsers handle asynchronous operations and how you can structure your code to maximize performance, maintainability, and scalabilit`,
-    deadline: "2026-03-01",
-    isUsedKey: true,
-    taskKey: "dsafdsaf",
-    xpPoint: 200,
-    submitted: false,
-    userNote: ""
-  }
-];
+import { activeTasks, updateUserTask } from "@/services/dashboradServices";
+import { useAuth } from "@/hooks/useAuth";
+import { MissionCompleteStamp } from "@/components/MissionCompleteStamp";
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState(MOCK_TASKS);
-  const [filterGoal, setFilterGoal] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTask, setSelectedTask] = useState(null);
+  const { user, refreshUser } = useAuth();
 
-  const handleSubmitTask = (taskID, note, key) => {
-    setTasks(prev =>
-      prev.map(t =>
-        t.id === taskID
-          ? { ...t, submitted: true, userNote: note, taskKey: t.isUsedKey ? key : "" }
-          : t
-      )
-    );
-    setSelectedTask(null);
+  const [tasks, setTasks] = useState([]);
+  const [filterGoal, setFilterGoal] = useState("all");
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showMissionComplete, setShowMissionComplete] = useState(false);
+
+
+  // Fetch tasks
+  useEffect(() => {
+    if (!user) return;
+    const fetchTasks = async () => {
+      try {
+        const res = await activeTasks(user.id);
+        const userTasks = res.userTasks || [];
+        setTasks(
+          userTasks.map(ut => ({
+            id: ut.task.id,
+            title: ut.task.title,
+            description: ut.task.description,
+            deadline: new Date(ut.task.deadline).toLocaleDateString(),
+            isUsedKey: ut.task.isUsedKey,
+            taskKey: ut.task.taskKey || "",
+            xpPoint: ut.task.xpPoints,
+            submitted: ut.status === "Completed",
+            keySubmitted: ut.keySubmitted || "",
+            userNote: ut.note || "",
+            goal: ut.task.goal,
+            userTaskId: ut.id
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to fetch tasks:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTasks();
+  }, [user]);
+
+  // Handle submit task
+  const handleSubmitTask = async (userTaskId, taskID, note, key) => {
+    setError("");
+    const task = tasks.find(t => t.id === taskID);
+    if (task.isUsedKey && key !== task.taskKey) {
+      setError("Invalid key submitted!");
+      return;
+    }
+    try {
+      const res = await updateUserTask(userTaskId, { note, keySubmitted: key });
+      if (!res.success) {
+        setError(res.message || "Failed to submit task.");
+        return;
+      }
+      refreshUser();
+      setSelectedTask(null);
+      // Trigger the Mission Complete animation
+      setShowMissionComplete(true);
+    } catch {
+      setError("Failed to submit task. Try again.");
+    }
   };
 
-  const filteredTasks = tasks.filter(task => {
-    const matchesGoal = filterGoal === "all" || task.goalID === parseInt(filterGoal);
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesGoal && matchesSearch;
-  });
 
-  // Card animation variants
+  // Generate goals from tasks dynamically
+  const goals = useMemo(() => {
+    const uniqueGoals = [...new Map(tasks.map(t => [t.goal.id, t.goal])).values()];
+    return uniqueGoals;
+  }, [tasks]);
+
+  // Filter tasks
+  const filteredTasks = tasks.filter(task =>
+    filterGoal === "all" || task.goal.id === parseInt(filterGoal)
+  );
+
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
     submitted: { backgroundColor: "#064e3b", transition: { duration: 0.5 } }
   };
 
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center text-white">
+        Loading tasks...
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background p-6 md:p-12">
       <motion.div className="max-w-6xl mx-auto space-y-8">
-
         {/* Header */}
         <div className="space-y-4">
           <h2 className="text-gray-400 font-mono uppercase tracking-widest text-sm">▶ TASK LOG</h2>
@@ -87,78 +112,74 @@ export default function TasksPage() {
 
         {/* Filters */}
         <div className="bg-[#1c252e] border border-white/10 clip-path-angle p-6 flex flex-col md:flex-row md:items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-3 w-4 h-4 text-primary/50" />
-            <input
-              type="text"
-              placeholder="Search tasks..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-[#0F1923] border border-white/10 pl-10 pr-4 py-2 text-white font-mono text-sm focus:border-primary focus:outline-none transition rounded-md"
-            />
+          <div className="relative w-full md:w-64">
+            <select
+              value={filterGoal}
+              onChange={e => setFilterGoal(e.target.value)}
+              className="appearance-none w-full bg-[#0F1923] border border-white/20 text-white text-sm font-mono px-4 py-2 pr-10 rounded-lg focus:outline-none focus:border-primary transition shadow-sm hover:border-primary cursor-pointer"
+            >
+              <option value="all">All Goals</option>
+              {goals.map(goal => (
+                <option key={goal.id} value={goal.id}>{goal.name}</option>
+              ))}
+            </select>
+            {/* Custom dropdown arrow */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+              <svg
+                className="w-4 h-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
-
-          <select
-            value={filterGoal}
-            onChange={e => setFilterGoal(e.target.value)}
-            className="bg-[#0F1923] border border-white/10 px-4 py-2 text-white font-mono text-sm focus:border-primary focus:outline-none transition cursor-pointer rounded-md uppercase"
-          >
-            <option value="all">All Goals</option>
-            {MOCK_GOALS.map(goal => (
-              <option key={goal.id} value={goal.id}>{goal.name}</option>
-            ))}
-          </select>
         </div>
+
+        {/* Mission Complete Animation */}
+        <AnimatePresence>
+          {showMissionComplete && (
+            <MissionCompleteStamp onComplete={() => setShowMissionComplete(false)} />
+          )}
+        </AnimatePresence>
+
+
 
         {/* Task Cards */}
         <motion.div className="flex flex-col gap-6">
           <AnimatePresence>
-            {filteredTasks.map(task => {
-              const goal = MOCK_GOALS.find(g => g.id === task.goalID);
-              return (
-                <motion.div
-                  key={task.id}
-                  initial="hidden"
-                  animate={task.submitted ? "submitted" : "visible"}
-                  exit={{ opacity: 0, y: -20 }}
-                  variants={cardVariants}
-                  className="border border-white/10 p-6 cursor-pointer relative rounded-xl shadow-xl hover:shadow-primary/50 transition-all w-full break-words"
-                  onClick={() => !task.submitted && setSelectedTask(task)}
-                >
-                  <div className="flex justify-between flex-wrap gap-2 mb-2 items-start">
-                    <h3 className="text-white font-display font-bold text-xl">{task.title}</h3>
-                    <div className="flex gap-2 flex-wrap">
-                      {task.submitted && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="text-green-400 font-bold text-lg"
-                        >
-                          ✅ Submitted
-                        </motion.span>
-                      )}
-                      {task.isUsedKey && !task.submitted && (
-                        <span className="text-xs font-mono bg-primary/20 text-white px-2 py-1 rounded-md">Key Required</span>
-                      )}
-                    </div>
+            {filteredTasks.map(task => (
+              <motion.div
+                key={task.id}
+                initial="hidden"
+                animate={task.submitted ? "submitted" : "visible"}
+                exit={{ opacity: 0, y: -20 }}
+                variants={cardVariants}
+                className="border border-white/10 p-6 cursor-pointer relative rounded-xl shadow-xl hover:shadow-primary/50 transition-all w-full break-words"
+                onClick={() => !task.submitted && setSelectedTask(task)}
+              >
+                <div className="flex justify-between flex-wrap gap-2 mb-2 items-start">
+                  <h3 className="text-white font-display font-bold text-xl">{task.title}</h3>
+                  <div className="flex gap-2 flex-wrap">
+                    {task.submitted && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-green-400 font-bold text-lg">✅ Submitted</motion.span>}
+                    {task.isUsedKey && !task.submitted && <span className="text-xs font-mono bg-primary/20 text-white px-2 py-1 rounded-md">Key Required</span>}
                   </div>
+                </div>
 
-                  <p className="text-gray-400 text-sm mb-4 whitespace-pre-wrap">{task.description}</p>
+                <p className="text-gray-400 text-sm mb-4 whitespace-pre-wrap">{task.description}</p>
 
-                  <div className="flex flex-wrap justify-between gap-2 mb-2 text-xs font-mono text-gray-500">
-                    <span>Deadline: {task.deadline}</span>
-                    <span>XP: <span className="text-accent font-bold">{task.xpPoint}</span></span>
-                    <span>Goal Duration: {goal?.duration}</span>
-                    <span>Domain: {goal?.domain}</span>
-                  </div>
+                <div className="flex flex-wrap justify-between gap-2 mb-2 text-xs font-mono text-gray-500">
+                  <span>Deadline: {task.deadline}</span>
+                  <span>XP: <span className="text-accent font-bold">{task.xpPoint}</span></span>
+                  <span>Domain: {task.goal.domain}</span>
+                </div>
 
-                  <div className="flex flex-wrap justify-between gap-2 text-xs font-mono text-gray-400">
-                    <span>Goal: {goal?.name}</span>
-                    <span>Teacher: {goal?.teacher}</span>
-                  </div>
-                </motion.div>
-              );
-            })}
+                <div className="flex flex-wrap justify-between gap-2 text-xs font-mono text-gray-400">
+                  <span>Goal: {task.goal.name}</span>
+                </div>
+              </motion.div>
+            ))}
           </AnimatePresence>
         </motion.div>
       </motion.div>
@@ -182,12 +203,24 @@ export default function TasksPage() {
               <h2 className="text-2xl font-display font-bold text-white mb-4">{selectedTask.title}</h2>
               <p className="text-gray-400 text-sm mb-4 whitespace-pre-wrap">{selectedTask.description}</p>
 
-              <form onSubmit={e => {
-                e.preventDefault();
-                const note = e.target.note.value;
-                const key = e.target.taskKey?.value || "";
-                handleSubmitTask(selectedTask.id, note, key);
-              }} className="flex flex-col gap-3">
+              {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  const note = e.target.note.value;
+                  const key = e.target.taskKey?.value || "";
+
+                  handleSubmitTask(
+                    selectedTask.userTaskId,
+                    selectedTask.id,
+                    note,
+                    key
+                  );
+                }}
+                className="flex flex-col gap-3"
+              >
+
                 {selectedTask.isUsedKey && !selectedTask.submitted && (
                   <input
                     type="text"
@@ -203,7 +236,7 @@ export default function TasksPage() {
                   className="bg-[#0F1923] border border-white/10 px-4 py-2 text-white font-mono text-sm focus:border-primary focus:outline-none transition rounded-md"
                 />
                 <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => setSelectedTask(null)} className="bg-white/10 text-white px-4 py-2 rounded-md font-bold hover:bg-red-600 transition">Cancel</button>
+                  <button type="button" onClick={() => { setSelectedTask(null); setError(""); }} className="bg-white/10 text-white px-4 py-2 rounded-md font-bold hover:bg-red-600 transition">Cancel</button>
                   <button type="submit" className="bg-primary text-white px-4 py-2 rounded-md font-bold hover:bg-green-600 transition">Submit</button>
                 </div>
               </form>
