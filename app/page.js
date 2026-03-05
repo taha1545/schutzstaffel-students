@@ -9,7 +9,9 @@ import { ValorantButton } from "@/components/ValorantButton";
 import { DecryptionLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/hooks/useAuth";
 import { checkServer } from "@/services/server";
-import { useTokenFromQuery } from "@/hooks/useTokenFromQuery";
+import { Suspense } from "react";
+import TokenHandler from "@/components/TokenHandler";
+
 
 const containerVariants = {
   hidden: { opacity: 0, x: 20 },
@@ -26,8 +28,6 @@ const itemVariants = {
 };
 
 export default function LandingPage() {
-  //
-  useTokenFromQuery();
   //
   const { loading, isAuthenticated } = useAuth();
 
@@ -62,6 +62,9 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-background relative overflow-hidden">
+      <Suspense fallback={null}>
+        <TokenHandler />
+      </Suspense>
       <SystemBackgroundGrid />
 
       {/* Loading Overlay */}
