@@ -43,6 +43,7 @@ export default function ProfilePage() {
   const userImage = user?.imagePath
     ? `${BASE_URL}/${user.imagePath}`
     : null;
+  const userName = user?.fullName;
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
   if (!dashboardData) return <div className="min-h-screen flex items-center justify-center text-red-400">No data found</div>;
