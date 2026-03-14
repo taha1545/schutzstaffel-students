@@ -36,12 +36,12 @@ export function TacticalLayout({
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background ">
       {/* Sidebar */}
       {showSidebar && <Sidebar {...sidebarProps} />}
 
       {/* Main Content */}
-      <main className="w-[calc(100%-256px)] lg:ml-64">
+      <main className="lg:w-[calc(100%-256px)] lg:ml-64 pt-2">
         <motion.div
           initial="hidden"
           animate="enter"

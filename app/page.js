@@ -11,6 +11,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { checkServer } from "@/services/server";
 import { Suspense } from "react";
 import TokenHandler from "@/components/TokenHandler";
+import { CookieConsent } from "@/components/CookieConsent";
+
+
 
 
 const containerVariants = {
@@ -82,7 +85,7 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative lg:w-3/5 h-[45vh] lg:h-screen bg-black overflow-hidden z-10">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/25 via-transparent to-transparent z-10" />
+        <div className="absolute inset-0 bg-linear-to-r from-primary/25 via-transparent to-transparent z-10" />
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070')] bg-cover bg-center opacity-30 mix-blend-luminosity scale-110" />
         <div className="absolute bottom-16 left-8 lg:left-16 z-20">
           <motion.div
@@ -92,7 +95,7 @@ export default function LandingPage() {
           >
             <h1 className="text-6xl md:text-8xl font-black italic uppercase text-white leading-[0.85] tracking-tighter">
               schutzstaffel <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-red-600">
+              <span className="text-transparent bg-clip-text bg-linear-to-r from-primary to-red-600">
                 Academy
               </span>
             </h1>

@@ -111,7 +111,7 @@ export default function TasksPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-[#1c252e] border border-white/10 clip-path-angle p-6 flex flex-col md:flex-row md:items-center gap-4">
+        <div className="bg-card border border-accent-foreground clip-path-angle p-6 flex flex-col md:flex-row md:items-center gap-4">
           <div className="relative w-full md:w-64">
             <select
               value={filterGoal}

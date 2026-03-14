@@ -38,7 +38,7 @@ export function Sidebar() {
     return (
         <aside className="hidden lg:flex flex-col w-64 h-screen bg-[#0F1923] border-r border-white/10 fixed left-0 top-0 z-50">
             {/* Branding */}
-            <div className="p-8 border-b border-white/10 relative overflow-hidden">
+            <div className="p-[10%] border-b border-white/10 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-primary/40" />
                 <h1 className="text-3xl font-black text-white tracking-tighter text-center italic">
                     schutzstaffel
